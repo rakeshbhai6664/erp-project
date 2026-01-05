@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 
 class Product(models.Model):
     name = models.CharField(max_length=100)
@@ -20,21 +21,19 @@ class StockLog(models.Model):
     ]
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.IntegerField()
+    quantity = models.PositiveIntegerField()
     stock_type = models.CharField(max_length=3, choices=STOCK_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.product.name} - {self.stock_type} - {self.quantity}"
 
-    # ✅ SAVE METHOD CLASS KE ANDAR
-    def save(self, *args, **kwargs):
-        if not self.pk:  # sirf new entry par
-            if self.stock_type == self.STOCK_IN:
-                self.product.stock += self.quantity
-            elif self.stock_type == self.STOCK_OUT:
-                self.product.stock -= self.quantity
+    # ✅ ADMIN-FRIENDLY VALIDATION
+    def clean(self):
+        if self.stock_type == self.STOCK_OUT:
+            if self.product.stock < self.quantity:
+                raise ValidationError({
+                    'quantity': f'Available stock sirf {self.product.stock} hai'
+                })
 
-            self.product.save()
 
-        super().save(*args, **kwargs)
